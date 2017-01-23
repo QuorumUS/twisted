@@ -2141,7 +2141,17 @@ class _ReadBodyProtocol(protocol.Protocol):
         the response body has been completely received without error.
         """
         if reason.check(ResponseDone):
-            self.deferred.callback(b''.join(self.dataBuffer))
+            try:
+                self.deferred.callback(b''.join(self.dataBuffer))
+            except:
+                # this custom try except is here because I use treq together with twisted's readBody, which is separate from treq
+                # I'm using Twisted's readBody so I can impose a timeout on the reading of the response's body (treq does not
+                # allow me to impose such a timeout). But since treq is not intended to be used with readBody, when I cancel the
+                # deferred returned by readBody this in turn fires a deferred related to the network connection and treq
+                # later tries to fire this already fired deferred (the one above). thus we have this try except.
+                # we don't need to do anything in the except clause. if an Exception is raised above, it just means that
+                # the deferred was already fired and does not need to be fired again.
+                pass
         elif reason.check(PotentialDataLoss):
             self.deferred.errback(
                 PartialDownloadError(self.status, self.message,
